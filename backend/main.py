@@ -16,7 +16,7 @@ ROOT_ENV_PATH = Path(__file__).resolve().parent.parent / ".env"
 load_dotenv(ROOT_ENV_PATH, override=True)
 
 DB_HOST = os.getenv("DB_HOST", "").strip()
-DB_PORT = os.getenv("DB_PORT", "5432").strip()
+DB_PORT = os.getenv("DB_PORT", "").strip()
 DB_NAME = os.getenv("DB_NAME", "").strip()
 DB_USER = os.getenv("DB_USER", "").strip()
 DB_PASSWORD = os.getenv("DB_PASSWORD", "")
@@ -29,11 +29,59 @@ def root():
 
 @app.post("/testPost")
 def testPost(test: str):
-    return {"Test": test}
+    try:
+        with connect_to_database() as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    """
+                    INSERT INTO "testLog" (result)
+                    VALUES (%s)
+                    RETURNING datetime, result;
+                    """,
+                    (test,)
+                )
+
+                response = cursor.fetchone()
+
+            return {
+                "message": "Successfully saved",
+                "data": {
+                    "datetime": response[0],
+                    "result": response[1]
+                }
+            }
+
+    except psycopg.Error as error:
+        database_unavailable(error)
+    return {"Saving Fail Post": test}
 
 @app.get("/testGet/{test}")
 def testGet(test: str):
-    return {"Test": test}
+    try:
+        with connect_to_database() as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    """
+                    INSERT INTO "testLog" (result)
+                    VALUES (%s)
+                    RETURNING datetime, result;
+                    """,
+                    (test,)
+                )
+
+                response = cursor.fetchone()
+
+            return {
+                "message": "Successfully saved",
+                "data": {
+                    "datetime": response[0],
+                    "result": response[1]
+                }
+            }
+
+    except psycopg.Error as error:
+        database_unavailable(error)
+    return {"Saving Fail Get": test}
 
 
 def connect_to_database() -> psycopg.Connection:
@@ -74,7 +122,7 @@ def database_unavailable(error: psycopg.Error) -> NoReturn:
         status_code=503,
         detail=(
             f"PostgreSQL connection failed ({error_type}). Check DB_HOST, DB_PORT, "
-            "DB_NAME, DB_USER, DB_PASSWORD, and the provider's SSL/network settings."
+            "DB_NAME, DB_USER, DB_PASSWORD, and the provider's SSL/network settings. " + DB_HOST
         ),
     )
 
