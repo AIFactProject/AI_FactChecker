@@ -13,7 +13,7 @@ from pydantic import BaseModel, Field, field_validator
 
 
 ROOT_ENV_PATH = Path(__file__).resolve().parent.parent / ".env"
-load_dotenv(ROOT_ENV_PATH, override=True)
+load_dotenv(ROOT_ENV_PATH, override=False)
 
 DB_HOST = os.getenv("DB_HOST", "").strip()
 DB_PORT = os.getenv("DB_PORT", "").strip()
