@@ -1,0 +1,10 @@
+{
+  "description": "Verify claims and articles with AI-powered analysis and transparent evidence, helping readers, students, and researchers assess information credibility.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}
