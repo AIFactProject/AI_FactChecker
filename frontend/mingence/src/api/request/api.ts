@@ -1,5 +1,5 @@
 
-import { config } from "./config";
+import { config } from "../../config/config";
 
 // Shared response handler
 async function handleResponse<T>(
