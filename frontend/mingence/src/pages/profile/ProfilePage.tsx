@@ -3,11 +3,12 @@ import type { FormEvent } from "react";
 import type { User } from "@supabase/supabase-js";
 import type { Page } from "../../common/types";
 import { ContentPage } from "../../common/ContentPage";
-import { updatePassword, getSession, signOut } from "../../api/supabase/supabaseAuth";
+import { updatePassword } from "../../api/supabase/supabaseAuth";
+// import { updatePassword, getSession, signOut } from "../../api/supabase/supabaseAuth";
 //import { supabase } from "../../config/config";
 export function ProfilePage({ user, navigate }: { user: User | null; navigate: (p: Page) => void }) {
   const [message, setMessage] = useState("");
-  const [confirmDelete, setConfirmDelete] = useState(false);
+  // const [confirmDelete, setConfirmDelete] = useState(false);
   const changePassword = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const password = String(new FormData(e.currentTarget).get("password"));
