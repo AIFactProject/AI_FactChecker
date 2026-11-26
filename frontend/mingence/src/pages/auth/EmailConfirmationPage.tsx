@@ -52,9 +52,9 @@ export function EmailConfirmationPage({ navigate }: { navigate: (p: Page) => voi
         {state !== "checking" && (
           <button
             className="primary-btn auth-submit"
-            onClick={() => navigate(state === "confirmed" ? "results" : "register")}
+            onClick={() => navigate(state === "confirmed" ? "login" : "register")}
           >
-            {state === "confirmed" ? "Continue to your workspace" : "Create an account"}
+            {state === "confirmed" ? "Continue to login" : "Create an account"}
           </button>
         )}
       </section>

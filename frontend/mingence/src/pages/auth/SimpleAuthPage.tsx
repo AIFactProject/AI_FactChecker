@@ -72,7 +72,7 @@ export function SimpleAuthPage({
         </form>
         <button
           className="back-link"
-          onClick={() => navigate(mode === "forgot" ? "login" : "profile")}
+          onClick={() => navigate(mode === "forgot" ? "login" : "login")}
         >
           {mode === "forgot" ? "Back to log in" : "Continue"}
         </button>
