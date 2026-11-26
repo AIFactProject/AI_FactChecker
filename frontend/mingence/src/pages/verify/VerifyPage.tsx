@@ -3,6 +3,31 @@ import type { Page } from "../../common/types";
 import { Icon } from "../../common/Icon";
 import { AdSidebar } from "../../common/AdSidebar";
 import { HistorySidebar } from "../../common/HistorySidebar";
+
+import { submitClaim, getAnalysisStatus, getAnalysis,} from "../../api/request/analysisApi";
+import type { AnalysisStatus } from "../../models/analysisModel";
+
+const STATUS_PROGRESS: Record<AnalysisStatus, number> = {
+  "Pending": 5,
+  "Processing Claim": 25,
+  "Gathering Evidences": 55,
+  "Formating Analysis": 80,
+  "Completed": 100,
+  "Failed": 0,
+};
+
+const STATUS_LABELS: Record<AnalysisStatus, string> = {
+  "Pending": "Waiting for analysis...",
+  "Processing Claim": "Identifying claims...",
+  "Gathering Evidences": "Retrieving trusted evidence...",
+  "Formating Analysis": "Preparing your assessment...",
+  "Completed": "Analysis completed!",
+  "Failed": "Analysis failed.",
+};
+
+const delay = (ms: number) =>
+  new Promise<void>((resolve) => window.setTimeout(resolve, ms));
+
 export function VerifyPage({
   initialClaim,
   onComplete,
@@ -12,26 +37,67 @@ export function VerifyPage({
   onComplete: (text: string) => void;
   navigate: (p: Page) => void;
 }) {
+
   const [text, setText] = useState(initialClaim);
   const [urlOpen, setUrlOpen] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
-  useEffect(() => {
-    if (!processing) return;
-    const id = window.setInterval(
-      () =>
-        setProgress((p) => {
-          if (p >= 100) {
-            window.clearInterval(id);
-            setTimeout(() => onComplete(text), 350);
-            return 100;
-          }
-          return Math.min(100, p + 4);
-        }),
-      80,
-    );
-    return () => window.clearInterval(id);
-  }, [processing, onComplete, text]);
+  const [currentStatus, setCurrentStatus] =
+    useState<AnalysisStatus>("Pending");
+
+  const handleAnalyse = async () => {
+    if (!text.trim() || processing) return;
+
+    setProcessing(true);
+    setProgress(STATUS_PROGRESS["Pending"]);
+    setCurrentStatus("Pending");
+
+    try {
+      // 1. Submit the claim to the backend.
+      const submission = await submitClaim({
+        claim: text.trim(),
+        field_id: "0a0639a0-7be6-4778-a584-85097bcae3b7",
+      });
+
+      const analysisId = submission.analysisId;
+
+      console.log("Analysis submitted:", submission);
+
+      // 2. Wait until the backend reports Completed or Failed.
+      while (true) {
+        await delay(2000);
+
+        const statusResult = await getAnalysisStatus(analysisId);
+        const status = statusResult.status;
+
+        setCurrentStatus(status);
+        setProgress(STATUS_PROGRESS[status]);
+
+        console.log("Analysis status:", status);
+
+        // 3. Stop polling when the analysis is completed.
+        if (status === "Completed") {
+          const result = await getAnalysis(analysisId);
+
+          // 4. Print the completed analysis result.
+          console.log("Analysis result:", result);
+
+          onComplete(text.trim());
+          break;
+        }
+
+        // 5. Stop polling when the analysis fails.
+        if (status === "Failed") {
+          console.error("Analysis failed:", analysisId);
+          break;
+        }
+      }
+    } catch (error) {
+      console.error("Error during analysis:", error);
+    } finally {
+      setProcessing(false);
+    }
+  };
 
   return (
     <main className="verify-workspace">
@@ -85,10 +151,11 @@ export function VerifyPage({
               <textarea
                 value={text}
                 onChange={(e) => setText(e.target.value)}
-                maxLength={600}
+                maxLength={1500}
                 placeholder="e.g. Global sea levels have risen by more than 20 cm since 1900."
+                disabled={processing}
               />
-              <span>{text.length} / 600</span>
+              <span>{text.length} / 1500</span>
             </div>
             <div className="verify-footer">
               <p>
@@ -97,10 +164,7 @@ export function VerifyPage({
               <button
                 className="primary-btn"
                 disabled={!text.trim() || processing}
-                onClick={() => {
-                  setProgress(5);
-                  setProcessing(true);
-                }}
+                onClick={handleAnalyse}
               >
                 {processing ? "Analysing..." : "Analyse content"}{" "}
                 {!processing && <Icon name="arrow" size={18} />}
@@ -136,12 +200,10 @@ export function VerifyPage({
             <div className="processing">
               <div className="processing-top">
                 <span>
-                  <Icon name="sparkles" size={17} />{" "}
-                  {progress < 36
-                    ? "Identifying claims..."
-                    : progress < 72
-                      ? "Retrieving trusted evidence..."
-                      : "Preparing your assessment..."}
+                  
+                  <Icon name="sparkles" size={17} />
+                  {STATUS_LABELS[currentStatus]}
+
                 </span>
                 <strong>{progress}%</strong>
               </div>

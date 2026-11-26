@@ -20,7 +20,7 @@ import {
     onAuthStateChange,
 } from "./api/supabase/supabaseAuth";
 
-import { getUserInfo } from "./models/userInfo";
+import { getUserInfo } from "./models/userInfoModel";
 
 export default function App() {
     const initialPage = new URLSearchParams(
