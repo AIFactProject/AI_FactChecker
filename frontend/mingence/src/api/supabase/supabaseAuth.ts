@@ -42,3 +42,14 @@ export const exchangeCodeForSession = (code: string) =>
 export const onAuthStateChange = (
   callback: (event: AuthChangeEvent, session: Session | null) => void,
 ) => supabase.auth.onAuthStateChange(callback);
+
+
+export async function getAccessToken(): Promise<string> {
+    const { data, error } = await getSession();
+
+    if (error || !data.session?.access_token) {
+        throw new Error("Your session has expired. Please sign in again.");
+    }
+
+    return data.session.access_token;
+}
