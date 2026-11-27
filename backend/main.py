@@ -1,7 +1,7 @@
 import os
 
 import uvicorn
-from fastapi import Depends, FastAPI, BackgroundTasks
+from fastapi import Depends, FastAPI
 from testRequest import testPostRequest, testGetRequest
 from userAuth import get_current_user
 from user import get_or_create_user_role, get_or_create_user_key
@@ -10,6 +10,7 @@ from encryption import encryption, decryption
 from fastapi.middleware.cors import CORSMiddleware
 
 from analysis import router as analysis_router
+from result import router as result_router
 
 app = FastAPI(
     title="Mingence API",
@@ -30,7 +31,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
 @app.get("/")
 def root():
     return {"Hello": "World"}
@@ -44,6 +44,7 @@ def testGet(test: str):
     return testGetRequest(test = test)
 
 app.include_router(analysis_router)
+app.include_router(result_router)
 
 @app.get("/getUserInfo")
 def getUserInfo(current_user=Depends(get_current_user)):

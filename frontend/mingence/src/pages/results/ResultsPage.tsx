@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { Page } from "../../common/types";
 import { Icon } from "../../common/Icon";
 import { HistorySidebar } from "../../common/HistorySidebar";
+import type { HistoryItem } from "../../models/resultModel";
 const checks = [
   {
     title: "Global average sea level has risen by more than 20 cm since 1900.",
@@ -16,11 +17,23 @@ const checks = [
   },
 ];
 
-export function ResultsPage({ navigate, onEdit }: { navigate: (p: Page) => void; onEdit: () => void }) {
+export function ResultsPage({ 
+  inputClaimId,
+  navigate, 
+  onEdit,
+  historyItems,
+  onHistoryChange,
+}: { 
+  inputClaimId: string;
+  navigate: (p: Page) => void; 
+  onEdit: () => void;
+  historyItems: HistoryItem[] | null;
+  onHistoryChange: (items: HistoryItem[]) => void;
+}) {
   const [selected, setSelected] = useState<number | null>(0);
   return (
     <main className="results-layout">
-      <HistorySidebar navigate={navigate} active="result" />
+      <HistorySidebar navigate={navigate} active="previous" activeId={inputClaimId} historyItems={historyItems} onHistoryChange={onHistoryChange} />
 
       <section className="document-panel">
         <div className="result-toolbar">
@@ -32,9 +45,11 @@ export function ResultsPage({ navigate, onEdit }: { navigate: (p: Page) => void;
             <button className="outline-icon" onClick={onEdit}>
               <Icon name="document" size={16} /> Edit
             </button>
+            {/*
             <button className="outline-icon">
               <Icon name="external" size={16} /> Share
             </button>
+              */}
           </div>
         </div>
         <div className="document-content">

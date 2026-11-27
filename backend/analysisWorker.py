@@ -156,7 +156,7 @@ def verify_claim(article):
             "for testing the Mingence processing workflow."
         ),
 
-        "trustScore": random.randint(60, 95),
+        "trustScore": random.randint(60, 95)/100.0,
 
         "points": points,
     }

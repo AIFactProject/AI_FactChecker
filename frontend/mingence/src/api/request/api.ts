@@ -9,10 +9,16 @@ async function handleResponse<T>(
     if (!response.ok) {
         const errorData = await response.json().catch(() => null);
 
-        throw new Error(
-            errorData?.detail ||
-            `API Error: ${response.status} ${response.statusText}`
-        );
+        const detail = errorData?.detail;
+
+        const message =
+            typeof detail === "string"
+                ? detail
+                : detail
+                    ? JSON.stringify(detail)
+                    : `API Error: ${response.status} ${response.statusText}`;
+
+        throw new Error(message);
     }
 
     if (response.status === 204) {
