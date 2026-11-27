@@ -3,9 +3,12 @@ import type { Page } from "../../common/types";
 import { Icon } from "../../common/Icon";
 import { AdSidebar } from "../../common/AdSidebar";
 import { HistorySidebar } from "../../common/HistorySidebar";
+import type { HistoryItem } from "../../models/resultModel";
 
 import { submitClaim, getAnalysisStatus, getAnalysis,} from "../../api/request/analysisApi";
+import { getClaimArticle } from "../../api/request/resultApi";
 import type { AnalysisStatus } from "../../models/analysisModel";
+import type { ClaimItem } from "../../models/resultModel";
 
 const STATUS_PROGRESS: Record<AnalysisStatus, number> = {
   "Pending": 5,
@@ -29,24 +32,71 @@ const delay = (ms: number) =>
   new Promise<void>((resolve) => window.setTimeout(resolve, ms));
 
 export function VerifyPage({
-  initialClaim,
+  inputClaimId,
   onComplete,
   navigate,
+  historyItems,
+  onHistoryChange,
 }: {
-  initialClaim: string;
+  inputClaimId: string | null;
   onComplete: (text: string) => void;
   navigate: (p: Page) => void;
+  historyItems: HistoryItem[] | null;
+  onHistoryChange: (items: HistoryItem[]) => void;
 }) {
 
-  const [text, setText] = useState(initialClaim);
+  const [claim, setClaim] = useState("");
+  const [isLoadingClaim, setIsLoadingClaim] = useState(false);
+  const [claimError, setClaimError] = useState("");
   const [urlOpen, setUrlOpen] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [currentStatus, setCurrentStatus] =
     useState<AnalysisStatus>("Pending");
 
+  useEffect(() => {
+    if (!inputClaimId) {
+        setClaim("");
+        setClaimError("");
+        return;
+    }
+
+    let isMounted = true;
+
+    const fetchClaim = async () => {
+        try {
+            setIsLoadingClaim(true);
+            setClaimError("");
+
+            const response = await getClaimArticle(inputClaimId);
+            
+            if (isMounted) {
+                setClaim(response.article);
+            }
+        } catch (error) {
+            if (isMounted) {
+                setClaimError(
+                    error instanceof Error
+                        ? error.message
+                        : "Failed to retrieve article."
+                );
+            }
+        } finally {
+            if (isMounted) {
+                setIsLoadingClaim(false);
+            }
+        }
+    };
+
+    fetchClaim();
+
+    return () => {
+        isMounted = false;
+    };
+  }, [inputClaimId]);
+
   const handleAnalyse = async () => {
-    if (!text.trim() || processing) return;
+    if (!claim.trim() || processing) return;
 
     setProcessing(true);
     setProgress(STATUS_PROGRESS["Pending"]);
@@ -55,8 +105,9 @@ export function VerifyPage({
     try {
       // 1. Submit the claim to the backend.
       const submission = await submitClaim({
-        claim: text.trim(),
+        claim: claim.trim(),
         field_id: "0a0639a0-7be6-4778-a584-85097bcae3b7",
+        old_ref_id: inputClaimId
       });
 
       const analysisId = submission.analysisId;
@@ -82,7 +133,7 @@ export function VerifyPage({
           // 4. Print the completed analysis result.
           console.log("Analysis result:", result);
 
-          onComplete(text.trim());
+          onComplete(submission.inputClaimId);
           break;
         }
 
@@ -101,7 +152,7 @@ export function VerifyPage({
 
   return (
     <main className="verify-workspace">
-      <HistorySidebar navigate={navigate} />
+      <HistorySidebar navigate={navigate} active={inputClaimId ? "previous" : "new"} activeId={inputClaimId} historyItems={historyItems} onHistoryChange={onHistoryChange} />
       <section className="app-bg verify-page">
         <div className="verify-shell">
           <div className="verify-heading">
@@ -149,13 +200,17 @@ export function VerifyPage({
             <div className="text-entry">
               <label>Statement or claim</label>
               <textarea
-                value={text}
-                onChange={(e) => setText(e.target.value)}
+                value={claim}
+                onChange={(e) => setClaim(e.target.value)}
                 maxLength={1500}
-                placeholder="e.g. Global sea levels have risen by more than 20 cm since 1900."
-                disabled={processing}
+                placeholder={
+                  isLoadingClaim
+                      ? "Loading article..."
+                      : "Enter the article you want to verify..."
+                }
+                disabled={processing || isLoadingClaim}
               />
-              <span>{text.length} / 1500</span>
+              <span>{claim.length} / 1500</span>
             </div>
             <div className="verify-footer">
               <p>
@@ -163,7 +218,7 @@ export function VerifyPage({
               </p>
               <button
                 className="primary-btn"
-                disabled={!text.trim() || processing}
+                disabled={!claim.trim() || processing}
                 onClick={handleAnalyse}
               >
                 {processing ? "Analysing..." : "Analyse content"}{" "}
@@ -200,10 +255,12 @@ export function VerifyPage({
             <div className="processing">
               <div className="processing-top">
                 <span>
-                  
-                  <Icon name="sparkles" size={17} />
-                  {STATUS_LABELS[currentStatus]}
-
+                  <Icon name="sparkles" size={17} />{" "}
+                  {progress < 36
+                    ? "Identifying claims..."
+                    : progress < 72
+                      ? "Retrieving trusted evidence..."
+                      : "Preparing your assessment..."}
                 </span>
                 <strong>{progress}%</strong>
               </div>

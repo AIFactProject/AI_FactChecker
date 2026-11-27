@@ -28,7 +28,7 @@ export function AuthPage({ mode, navigate }: { mode: "login" | "register"; navig
     if (result.error) {
       setError(result.error.message);
     } else if (mode === "login") {
-      navigate("results");
+      navigate("verify");
     } else {
       setSubmitted(true);
     }
@@ -81,7 +81,7 @@ export function AuthPage({ mode, navigate }: { mode: "login" | "register"; navig
               </p>
               <button
                 className="primary-btn"
-                onClick={() => navigate(mode === "login" ? "results" : "login")}
+                onClick={() => navigate(mode === "login" ? "verify" : "login")}
               >
                 {mode === "login" ? "View last analysis" : "Return to log in"}{" "}
                 <Icon name="arrow" size={18} />

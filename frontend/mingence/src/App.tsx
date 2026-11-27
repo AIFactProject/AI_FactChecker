@@ -2,6 +2,7 @@
 import { useEffect, useState, useRef } from "react";
 import type { User } from "@supabase/supabase-js";
 import type { Page, PaidPlan } from "./common/types";
+import type { HistoryItem } from "./models/resultModel";
 
 import { Header } from "./common/Header";
 import { HomePage } from "./pages/home/HomePage";
@@ -22,33 +23,89 @@ import {
 
 import { getUserInfo } from "./models/userInfoModel";
 
-export default function App() {
-    const initialPage = new URLSearchParams(
-        window.location.search
-    ).get("page") as Page | null;
+  
+interface Route {
+    page: Page;
+    inputClaimId: string | null;
+}
 
-    const [page, setPage] = useState<Page>(initialPage ?? "home");
-    const [claim, setClaim] = useState("");
+function getRoute(): Route {
+    const params = new URLSearchParams(window.location.search);
+
+    const page = (params.get("page") ?? "home") as Page;
+    const inputClaimId = params.get("id");
+
+    // Results must always have an input claim ID.
+    if (page === "results" && !inputClaimId) {
+        return {
+            page: "verify",
+            inputClaimId: null,
+        };
+    }
+
+    return {
+        page,
+        inputClaimId,
+    };
+}
+
+export default function App() {
+    const initialRoute = getRoute();
+
+    const [page, setPage] = useState<Page>(initialRoute.page);
+    const [inputClaimId, setInputClaimId] = useState<string | null>(
+        initialRoute.inputClaimId
+    );
+    
     const [user, setUser] = useState<User | null>(null);
     const [role, setRole] = useState<string | null>(null);
     const [roleLoading, setRoleLoading] = useState(false);
     const [selectedPlan, setSelectedPlan] = useState<PaidPlan>("Premium");
+
+    const [historyItems, setHistoryItems] = useState<HistoryItem[] | null>(null);
+    const [claimCount, setClaimCount] = useState<number | null>(null);
+
+    const handleHistoryChange = (items: HistoryItem[]) => {
+        setHistoryItems(items);
+        setClaimCount(items.length);
+    };
 
     // Prevent the initial session response from overwriting
     // a newer authentication event.
     const authEventReceived = useRef(false);
 
     // Navigation
-    const navigate = (target: Page) => {
-        setPage(target);
+    const navigate = (target: Page, id?: string) => {
 
-        const url =
-            target === "home"
-                ? window.location.pathname
-                : `?page=${target}`;
+        // Results must have an input claim ID.
+        if (target === "results" && !id) {
+            console.error("An input claim ID is required for the results page.");
+            return;
+        }
+
+        const params = new URLSearchParams();
+
+        if (target !== "home") {
+            params.set("page", target);
+        }
+
+        if (id) {
+            params.set("id", id);
+        }
+
+        const url = params.toString()
+            ? `?${params.toString()}`
+            : window.location.pathname;
 
         window.history.pushState({}, "", url);
-        window.scrollTo({ top: 0, behavior: "smooth" });
+
+        setPage(target);
+        setInputClaimId(id ?? null);
+
+        window.scrollTo({
+            top: 0,
+            behavior: "smooth",
+        });
     };
 
     // Authentication: restore session and listen for auth changes.
@@ -70,14 +127,10 @@ export default function App() {
 
                 if (
                     data.session &&
-                    (initialPage === "login" || initialPage === "register")
+                    (initialRoute.page === "login" ||
+                        initialRoute.page === "register")
                 ) {
-                    setPage("results");
-                    window.history.replaceState(
-                        {},
-                        "",
-                        "?page=results"
-                    );
+                    navigate("verify");
                 }
             })
             .catch((error) => {
@@ -87,28 +140,33 @@ export default function App() {
         const {
             data: { subscription },
         } = onAuthStateChange((event, session) => {
+
             authEventReceived.current = true;
 
             setUser(session?.user ?? null);
 
             if (event === "PASSWORD_RECOVERY") {
-                setPage("reset-password");
+                navigate("reset-password");
             }
 
             if (event === "SIGNED_IN") {
-                setPage((current) =>
-                    current === "login" ? "results" : current
-                );
+                setPage((current) => {
+                    if (current === "login") {
+                        navigate("verify");
+                        return "verify";
+                    }
+
+                    return current;
+                });
             }
         });
 
-        // Browser back/forward navigation
+        // Browser back/forward navigation.
         const onPopState = () => {
-            const next = new URLSearchParams(
-                window.location.search
-            ).get("page") as Page | null;
+            const route = getRoute();
 
-            setPage(next ?? "home");
+            setPage(route.page);
+            setInputClaimId(route.inputClaimId);
         };
 
         window.addEventListener("popstate", onPopState);
@@ -125,7 +183,7 @@ export default function App() {
         let active = true;
 
         const fetchUserRole = async () => {
-            // Clear role when there is no authenticated user.
+
             if (!user) {
                 setRole(null);
                 setRoleLoading(false);
@@ -147,10 +205,11 @@ export default function App() {
                     throw new Error("Access token is unavailable.");
                 }
 
-                // Call FastAPI /getUserInfo
                 const response = await getUserInfo(accessToken);
 
-                console.debug(response.message + " : " + response.role)
+                console.debug(
+                    response.message + " : " + response.role
+                );
 
                 if (active) {
                     setRole(response.role);
@@ -205,27 +264,27 @@ export default function App() {
 
             {page === "verify" && (
                 <VerifyPage
-                    initialClaim={claim}
+                    key={inputClaimId ?? "new"}
+                    inputClaimId={inputClaimId}
                     navigate={navigate}
-                    onComplete={(text) => {
-                        setClaim(text);
-                        navigate("results");
+                    onComplete={(id) => {
+                        navigate("results", id);
                     }}
+                    historyItems={historyItems}
+                    onHistoryChange={handleHistoryChange}
                 />
             )}
 
-            {page === "results" && (
+            {page === "results" && inputClaimId && (
                 <ResultsPage
+                    key={inputClaimId}
+                    inputClaimId={inputClaimId}
                     navigate={navigate}
                     onEdit={() => {
-                        if (!claim) {
-                            setClaim(
-                                "Global average sea level has risen by more than 20 centimetres since 1900."
-                            );
-                        }
-
-                        navigate("verify");
+                        navigate("verify", inputClaimId);
                     }}
+                    historyItems={historyItems}
+                    onHistoryChange={handleHistoryChange}
                 />
             )}
 
